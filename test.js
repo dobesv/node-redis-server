@@ -176,14 +176,6 @@ describe('RedisServer', () => {
 
       expect(actualObject).to.eql(expectedObject);
     });
-    it('parses bin and conf only when conf is given', () => {
-      const expectedObject = { bin, conf, port, slaveof };
-      const actualObject = RedisServer.parseConfig(expectedObject);
-
-      expect(actualObject).to.have.property('bin').equal(expectedObject.bin);
-      expect(actualObject).to.have.property('conf').equal(expectedObject.conf);
-      expect(Object.keys(actualObject)).to.have.length(2);
-    });
     it('works without arguments', () => {
       expect(RedisServer.parseConfig()).to.be.an('object');
       expect(RedisServer.parseConfig(null)).to.be.an('object');
@@ -216,16 +208,53 @@ describe('RedisServer', () => {
       const config = { bin, port, slaveof };
       const actualFlags = RedisServer.parseFlags(config);
       const expectedFlags = [
-        `--port ${config.port}`,
-        `--slaveof ${config.slaveof}`
+        '--port',
+        config.port,
+        '--slaveof',
+        config.slaveof
       ];
 
       expect(actualFlags).to.eql(expectedFlags);
     });
-    it('returns only conf when present', () => {
+    it('returns conf when present', () => {
       const config = { bin, conf, port, slaveof };
+      const actualFlags = RedisServer.parseFlags(config);
+      const expectedFlags = [
+        config.conf,
+        '--port',
+        config.port,
+        '--slaveof',
+        config.slaveof
+      ];
 
-      expect(RedisServer.parseFlags(config)).to.eql([config.conf]);
+      expect(actualFlags).to.eql(expectedFlags);
+    });
+    it('returns conf and other flags when present', () => {
+      const config = { bin, conf, port, slaveof };
+      const actualFlags = RedisServer.parseFlags(config);
+      const expectedFlags = [
+        config.conf,
+        '--port',
+        config.port,
+        '--slaveof',
+        config.slaveof
+      ];
+
+      expect(actualFlags).to.eql(expectedFlags);
+    });
+    it('allows save as an empty string', () => {
+      const config = { save: '' };
+      const actualFlags = RedisServer.parseFlags(config);
+      const expectedFlags = ['--save', ''];
+
+      expect(actualFlags).to.eql(expectedFlags);
+    });
+    it('supports custom additional arguments', () => {
+      const config = { conf, args: ['--a', 'b', '--c'] };
+      const actualFlags = RedisServer.parseFlags(config);
+      const expectedFlags = [conf, '--a', 'b', '--c'];
+
+      expect(actualFlags).to.eql(expectedFlags);
     });
   });
   describe('.parseData()', () => {
@@ -498,7 +527,7 @@ describe('RedisServer', () => {
          * @return {undefined}
          */
         const listener = (value) => {
-          if (value.indexOf('MASTER <-> SLAVE sync started') !== -1) {
+          if (value.indexOf('MASTER <-> SLAVE sync started') !== -1 || value.indexOf('MASTER <-> REPLICA sync started') !== -1) {
             clearTimeout(timeout);
             server2.removeListener('stdout', listener);
             resolve(null);

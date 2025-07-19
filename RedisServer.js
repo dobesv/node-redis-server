@@ -3,9 +3,11 @@
 /**
  * Configuration options for a {@link RedisServer}.
  * @typedef {Object} RedisServer~Config
+ * @property {Array.<String>} [args]
  * @property {String} [bin=redis-server]
  * @property {String} [conf]
  * @property {(Number|String)} [port=6379]
+ * @property {(String)} [save]
  * @property {(String)} [slaveof]
  */
 
@@ -92,12 +94,18 @@ class RedisServer extends events.EventEmitter {
 
     if (source.conf != null) {
       target.conf = source.conf;
+    }
 
-      return target;
+    if (source.port != null) {
+      target.port = source.port;
     }
 
     if (source.slaveof != null) {
       target.slaveof = source.slaveof;
+    }
+
+    if (source.save != null) {
+      target.save = source.save;
     }
 
     if (source.port != null) {
@@ -114,18 +122,26 @@ class RedisServer extends events.EventEmitter {
    * @return {Array.<String>}
    */
   static parseFlags(config) {
-    if (config.conf != null) {
-      return [config.conf];
-    }
-
     const flags = [];
 
+    if (config.conf != null) {
+      flags.push(config.conf);
+    }
+
     if (config.port != null) {
-      flags.push(`--port ${config.port}`);
+      flags.push('--port', config.port);
+    }
+
+    if (config.save != null) {
+      flags.push('--save', config.save);
     }
 
     if (config.slaveof != null) {
-      flags.push(`--slaveof ${config.slaveof}`);
+      flags.push('--slaveof', config.slaveof);
+    }
+
+    if (Array.isArray(config.args)) {
+      return flags.concat(config.args);
     }
 
     return flags;
@@ -180,16 +196,18 @@ class RedisServer extends events.EventEmitter {
         break;
 
       case 'cant':
-      case 'error':
+      case 'error': {
+        const match = regExp.errorMessage
+          .exec(string);
         result.err = new Error(
-          regExp.errorMessage
-            .exec(string)
-            .pop()
-            .replace(regExp.multipleWhiteSpace, ' ')
+          match
+            ? match.pop()
+              .replace(regExp.multipleWhiteSpace, ' ')
+            : string
         );
         result.err.code = -3;
 
-        break;
+      } break;
 
       case 'cantsetmaximumopenfilestobecauseofoserror':
         return this.parseData(string.replace(match, ''));
@@ -272,6 +290,7 @@ class RedisServer extends events.EventEmitter {
           RedisServer.parseFlags(server.config)
         );
 
+        server.process.stderr.on('data', dataListener);
         server.process.stdout.on('data', dataListener);
         server.process.on('close', () => {
           server.process = null;
@@ -338,7 +357,8 @@ class RedisServer extends events.EventEmitter {
     this.config = RedisServer.parseConfig(configOrPort, {
       bin: 'redis-server',
       conf: null,
-      port: 6379,
+      port: null,
+      save: null,
       slaveof: null
     });
 

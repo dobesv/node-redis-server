@@ -21,6 +21,7 @@
     "email": "brandon.zacharie@gmail.com"
   },
   "main": "RedisServer.js",
+  "types": "index.d.ts",
   "engines": {
     "node": ">=4.0.0"
   },
